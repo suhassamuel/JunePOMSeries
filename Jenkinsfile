@@ -1,45 +1,53 @@
-pipeline{
+pipeline 
+{
     agent any
-    stages{
-        
-        stage("Build"){
-            steps{
-            echo("Building the project")
+    tools { 
+      maven 'maven' 
+    }
+
+    stages 
+    {
+        stage('Build') {
+            steps {
+                echo('build the project')
             }
         }
         
-        stage("Unit Test"){
-            steps{
-            echo("Run UTs")
+        
+        stage('Test') {
+            steps {
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    git 'https://github.com/suhassamuel/JunePOMSeries.git'
+                    bat "mvn clean install"
+                }
+            }
+        }
+                
+     
+        stage('Publish Allure Reports') {
+           steps {
+                script {
+                    allure([
+                        includeProperties: false,
+                        jdk: '',
+                        properties: [],
+                        reportBuildPolicy: 'ALWAYS',
+                        results: [[path: '/allure-results']]
+                    ])
+                }
             }
         }
         
-         stage("Deploy on dev"){
-            steps{
-            echo("Deploy on dev")
-            }
-        }
-         stage("Deploy on QA"){
-            steps{
-            echo("Deploy on QA")
-            }
-            
-        }
-        stage("Regression testing"){
-            steps{
-            echo("Regression testing")
-            }
-            
-        }
-          stage("Deply to stage"){
-            steps{
-            echo("Deply to stage")
-            }
-        }
         
-        stage("Deply to prod"){
+        stage('Publish Extent Report'){
             steps{
-            echo("Deply to prod")
+                     publishHTML([allowMissing: false,
+                                  alwaysLinkToLastBuild: false, 
+                                  keepAll: false, 
+                                  reportDir: 'build', 
+                                  reportFiles: 'TestExecutionReport.html', 
+                                  reportName: 'HTML Extent Report', 
+                                  reportTitles: ''])
             }
         }
     }
