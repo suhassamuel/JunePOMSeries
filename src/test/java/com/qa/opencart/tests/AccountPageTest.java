@@ -52,7 +52,7 @@ public class AccountPageTest extends BaseTest {
 
 		Assert.assertTrue(searchResultPage.getProductResultCount() > 0);
 
-		System.out.println("Result count " + searchResultPage.getProductResultCount());
+		System.out.println("Result count : " + searchResultPage.getProductResultCount());
 	}
 	
 	@DataProvider
