@@ -4,6 +4,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.Properties;
 
 import org.apache.commons.io.FileUtils;
@@ -11,7 +13,11 @@ import org.openqa.selenium.OutputType;
 import org.openqa.selenium.TakesScreenshot;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.firefox.FirefoxDriver;
+import org.openqa.selenium.firefox.FirefoxOptions;
+import org.openqa.selenium.remote.DesiredCapabilities;
+import org.openqa.selenium.remote.RemoteWebDriver;
 import org.openqa.selenium.safari.SafariDriver;
 
 import io.github.bonigarcia.wdm.WebDriverManager;
@@ -28,12 +34,14 @@ public class DriverFactory {
 	public Properties prop;
 	public OptionsManager optionsManager;
 	public static String highlight;
-	
+
 	public static ThreadLocal<WebDriver> tlDriver = new ThreadLocal<WebDriver>();
 
 	public WebDriver init_driver(Properties properties) {
 
-		String browserName = properties.getProperty("browser");
+		String browserName = properties.getProperty("browser").trim();
+		String browserVersion = properties.getProperty("browserversion").trim();
+
 		highlight = properties.getProperty("highlight");
 
 		optionsManager = new OptionsManager(properties);
@@ -44,19 +52,29 @@ public class DriverFactory {
 			WebDriverManager.chromedriver().setup();
 
 			// driver = new ChromeDriver(optionsManager.getChromeOptions());
-			tlDriver.set(new ChromeDriver(optionsManager.getChromeOptions()));
-			
+
+			if (Boolean.parseBoolean(prop.getProperty("remote"))) {
+				init_remoteDriver("chrome", browserVersion);
+			} else {
+				tlDriver.set(new ChromeDriver(optionsManager.getChromeOptions()));
+			}
+
 		} else if (browserName.equals("firefox")) {
 			WebDriverManager.firefoxdriver().setup();
 			// driver = new FirefoxDriver(optionsManager.getFirefoxOptions());
-			 tlDriver.set(new FirefoxDriver(optionsManager.getFirefoxOptions()));
-			
+
+			if (Boolean.parseBoolean(prop.getProperty("remote"))) {
+				init_remoteDriver("firefox", browserVersion);
+			} else {
+				tlDriver.set(new FirefoxDriver(optionsManager.getFirefoxOptions()));
+			}
+
 		} else if (browserName.equals("safari")) {
 
 			// driver = new SafariDriver();
-			
-			tlDriver.set( new SafariDriver());
-			
+
+			tlDriver.set(new SafariDriver());
+
 		} else {
 			System.out.println("Please pass the right browser" + browserName);
 		}
@@ -64,18 +82,16 @@ public class DriverFactory {
 //		driver.get(properties.getProperty("url"));
 //		driver.manage().deleteAllCookies();
 //		driver.manage().window().maximize();
-		
+
 		getDriver().get(properties.getProperty("url"));
 		getDriver().manage().deleteAllCookies();
 		getDriver().manage().window().maximize();
 
-		//return driver;
+		// return driver;
 		return getDriver();
 	}
-	
-	
-	public static synchronized  WebDriver getDriver()
-	{
+
+	public static synchronized WebDriver getDriver() {
 		return tlDriver.get();
 	}
 
@@ -94,13 +110,13 @@ public class DriverFactory {
 		if (envName == null) {
 			System.out.println("running on  on PROD env");
 			try {
-				 ip = new FileInputStream("./src/test/resources/config/config.properties");
+				ip = new FileInputStream("./src/test/resources/config/config.properties");
 
 			} catch (FileNotFoundException e) {
 				e.printStackTrace();
 			}
 		} else {
-			System.out.println("Running on environment: "+ envName);
+			System.out.println("Running on environment: " + envName);
 			try {
 				switch (envName) {
 
@@ -120,7 +136,7 @@ public class DriverFactory {
 				e.printStackTrace();
 			}
 		}
-		
+
 		try {
 			prop.load(ip);
 		} catch (IOException e) {
@@ -130,7 +146,7 @@ public class DriverFactory {
 
 		return prop;
 	}
-	
+
 	/**
 	 * This method is used to take screenshot
 	 * 
@@ -149,5 +165,40 @@ public class DriverFactory {
 			e.printStackTrace();
 		}
 		return path;
+	}
+
+	private void init_remoteDriver(String browser, String browserVersion) {
+		System.out.println("Running test on grid server : " + browser + "version: " + browserVersion);
+
+		if (browser.equals("chrome")) {
+			DesiredCapabilities cap = DesiredCapabilities.chrome();
+
+			cap.setCapability("browserName", "chrome");
+			cap.setCapability("browserVersion", browserVersion);
+			cap.setCapability("enableVNC", true);
+
+			cap.setCapability(ChromeOptions.CAPABILITY, optionsManager.getChromeOptions());
+
+			try {
+				tlDriver.set(new RemoteWebDriver(new URL(prop.getProperty("huburl")), cap));
+			} catch (MalformedURLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+
+		} else if (browser.equals("firefox")) {
+			DesiredCapabilities cap = DesiredCapabilities.firefox();
+			cap.setCapability("browserName", "firefox");
+			cap.setCapability("browserVersion", browserVersion);
+			cap.setCapability("enableVNC", true);
+			cap.setCapability(FirefoxOptions.FIREFOX_OPTIONS, optionsManager.getFirefoxOptions());
+			try {
+				tlDriver.set(new RemoteWebDriver(new URL(prop.getProperty("huburl")), cap));
+			} catch (MalformedURLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+
+		}
 	}
 }
